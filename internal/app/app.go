@@ -2,6 +2,7 @@ package app
 
 import (
 	grpcapp "auth-grpc-service/internal/app/grpc"
+	authsvc "auth-grpc-service/internal/services/auth"
 	"log/slog"
 	"time"
 )
@@ -15,10 +16,9 @@ func New(
 	grpcPort int,
 	storagePath string,
 	tokenTTL time.Duration) *App {
-	// TODO:инициализировать хранилище
-	// TODO:инициализировать auth service
 
-	grpcApp := grpcapp.New(log, grpcPort)
+	authService := authsvc.New(log, tokenTTL) // TODO: подставить реальное хранилище
+	grpcApp := grpcapp.New(authService, log, grpcPort)
 	return &App{
 		GRPCSrv: grpcApp,
 	}

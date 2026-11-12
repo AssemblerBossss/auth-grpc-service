@@ -16,9 +16,9 @@ type App struct {
 }
 
 // New creates new gRPC server app
-func New(log *slog.Logger, port int) *App {
+func New(authService authgrpc.Auth, log *slog.Logger, port int) *App {
 	gRPCServer := grpc.NewServer()
-	authgrpc.Register(gRPCServer)
+	authgrpc.Register(gRPCServer, authService)
 	return &App{
 		log:        log,
 		gRPCServer: gRPCServer,
@@ -34,7 +34,7 @@ func (s *App) MustRun() {
 
 func (s *App) Run() error {
 	const op = "grpcapp.Run"
-	log := s.log.With(slog.String("op", "op"))
+	log := s.log.With(slog.String("op", "op"), slog.Int("port", s.port))
 
 	l, err := net.Listen("tcp", fmt.Sprintf(":%d", s.port))
 	if err != nil {
@@ -42,13 +42,16 @@ func (s *App) Run() error {
 	}
 
 	log.Info("started gRPC server", slog.String("addr", l.Addr().String()))
-	return s.gRPCServer.Serve(l)
+	if err := s.gRPCServer.Serve(l); err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+	return nil
 }
 
 func (s *App) Stop() {
 	const op = "grpcapp.Stop"
 
-	s.log.With(slog.String("op", "op")).Info("stopped gRPC server", slog.Int("port", s.port))
+	s.log.With(slog.String("op", op)).Info("stopped gRPC server", slog.Int("port", s.port))
 	s.gRPCServer.GracefulStop()
 
 }
