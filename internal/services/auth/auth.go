@@ -2,6 +2,7 @@ package auth
 
 import (
 	"auth-grpc-service/internal/domain/models"
+	"auth-grpc-service/internal/lib/jwt"
 	"auth-grpc-service/internal/lib/logger/sl"
 	"auth-grpc-service/internal/storage"
 	"context"
@@ -84,7 +85,13 @@ func (a *Auth) Login(ctx context.Context, email, password string, appID int32) (
 		return "", fmt.Errorf("%s: %w", op, err)
 	}
 
-	return "1234567890", nil
+	token, err := jwt.NewToken(user, app, a.tokenTTL)
+	if err != nil {
+		log.Error("failed to create token", sl.Err(err))
+		return "", fmt.Errorf("%s: %w", op, err)
+	}
+	return token, nil
+
 }
 
 func (a *Auth) Register(ctx context.Context, email, password string) (int64, error) {
