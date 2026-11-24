@@ -17,7 +17,7 @@ func New(
 	storagePath string,
 	tokenTTL time.Duration) *App {
 
-	authService := authsvc.New(log, tokenTTL) // TODO: подставить реальное хранилище
+	authService := authsvc.New(log, tokenTTL)
 	grpcApp := grpcapp.New(authService, log, grpcPort)
 	return &App{
 		GRPCSrv: grpcApp,
