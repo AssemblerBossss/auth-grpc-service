@@ -9,7 +9,6 @@ import (
 	"fmt"
 
 	"github.com/mattn/go-sqlite3"
-	_ "github.com/mattn/go-sqlite3"
 )
 
 type Storage struct {
@@ -79,19 +78,27 @@ func (s *Storage) User(ctx context.Context, email string) (models.User, error) {
 	return user, nil
 }
 
+func (s *Storage) App(ctx context.Context, appID int32) (models.App, error) {
+	const op = "storage.sqlite.App"
+
+	var app models.App
+	err := s.db.QueryRowContext(ctx, "SELECT id, name, secret FROM apps WHERE id = ?", appID).
+		Scan(&app.ID, &app.Name, &app.Secret)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return models.App{}, fmt.Errorf("%s: %w", op, storage.ErrAppNotFound)
+		}
+		return models.App{}, fmt.Errorf("%s: %w", op, err)
+	}
+	return app, nil
+}
+
 func (s *Storage) IsAdmin(ctx context.Context, userID int64) (bool, error) {
 	const op = "storage.sqlite.IsAdmin"
 
-	stmt, err := s.db.Prepare("SELECT is_admin FROM users WHERE id = ?")
-	if err != nil {
-		return false, fmt.Errorf("%s: %w", op, err)
-	}
-
-	row := stmt.QueryRowContext(ctx, userID)
-
 	var isAdmin bool
-
-	err = row.Scan(&isAdmin)
+	err := s.db.QueryRowContext(ctx, "SELECT is_admin FROM users WHERE id = ?", userID).
+		Scan(&isAdmin)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return false, fmt.Errorf("%s: %w", op, storage.ErrUserNotFound)

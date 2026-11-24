@@ -39,6 +39,7 @@ var (
 	ErrInvalidCredentials = errors.New("invalid credentials")
 	ErrInvalidAppID       = errors.New("invalid app id")
 	ErrUserExists         = errors.New("user already exists")
+	ErrUserNotFound       = errors.New("user not found")
 )
 
 func New(
@@ -84,6 +85,10 @@ func (a *Auth) Login(ctx context.Context, email, password string, appID int32) (
 
 	app, err := a.appProvider.App(ctx, appID)
 	if err != nil {
+		if errors.Is(err, storage.ErrAppNotFound) {
+			return "", fmt.Errorf("%s: %w", op, ErrInvalidAppID)
+		}
+		log.Error("failed to get app", slog.Int64("app_id", int64(appID)), sl.Err(err))
 		return "", fmt.Errorf("%s: %w", op, err)
 	}
 
@@ -97,7 +102,7 @@ func (a *Auth) Login(ctx context.Context, email, password string, appID int32) (
 }
 
 func (a *Auth) Register(ctx context.Context, email, password string) (int64, error) {
-	const op = "auth.RegisterNewUser"
+	const op = "Auth.RegisterNewUser"
 	log := a.log.With(slog.String("op", op), slog.String("email", email))
 
 	log.Info("Registering user")
@@ -127,10 +132,10 @@ func (a *Auth) IsAdmin(ctx context.Context, userID int64) (bool, error) {
 
 	isAdmin, err := a.usrProvider.IsAdmin(ctx, userID)
 	if err != nil {
-		if errors.Is(err, storage.ErrAppNotFound) {
-			return false, fmt.Errorf("%s: %w", op, ErrInvalidAppID)
+		if errors.Is(err, storage.ErrUserNotFound) {
+			return false, fmt.Errorf("%s: %w", op, ErrUserNotFound)
 		}
-		log.Info("Failed to check if user is admin", sl.Err(err))
+		log.Error("failed to check if user is admin", sl.Err(err))
 		return false, fmt.Errorf("%s: %w", op, err)
 	}
 	return isAdmin, nil
