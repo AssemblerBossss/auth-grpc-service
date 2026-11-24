@@ -57,10 +57,48 @@ func (s *Storage) SaveUser(
 	return id, nil
 }
 
-func (s *Storage) User(cxt context.Context, email string) (models.User, error) {
-	return models.User{}, nil
+func (s *Storage) User(ctx context.Context, email string) (models.User, error) {
+	const op = "storage.sqlite.User"
+
+	stmt, err := s.db.Prepare("SELECT id, email, pass_hash FROM users WHERE email = ?")
+	if err != nil {
+		return models.User{}, fmt.Errorf("%s: %w", op, err)
+	}
+
+	res := stmt.QueryRowContext(ctx, email)
+
+	var user models.User
+	err = res.Scan(&user.ID, &user.Email, &user.PassHash)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return models.User{}, fmt.Errorf("%s: %w", op, storage.ErrUserNotFound)
+		}
+
+		return models.User{}, fmt.Errorf("%s: %w", op, err)
+	}
+	return user, nil
 }
 
 func (s *Storage) IsAdmin(ctx context.Context, userID int64) (bool, error) {
-	return false, nil
+	const op = "storage.sqlite.IsAdmin"
+
+	stmt, err := s.db.Prepare("SELECT is_admin FROM users WHERE id = ?")
+	if err != nil {
+		return false, fmt.Errorf("%s: %w", op, err)
+	}
+
+	row := stmt.QueryRowContext(ctx, userID)
+
+	var isAdmin bool
+
+	err = row.Scan(&isAdmin)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return false, fmt.Errorf("%s: %w", op, storage.ErrUserNotFound)
+		}
+
+		return false, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return isAdmin, nil
 }
