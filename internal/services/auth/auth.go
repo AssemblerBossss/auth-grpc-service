@@ -3,7 +3,9 @@ package auth
 import (
 	"auth-grpc-service/internal/domain/models"
 	"auth-grpc-service/internal/lib/logger/sl"
+	"auth-grpc-service/internal/storage"
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
@@ -29,8 +31,12 @@ type UserProvider interface {
 }
 
 type AppProvider interface {
-	App(cxt context.Context, appID string) (models.App, error)
+	App(cxt context.Context, appID int32) (models.App, error)
 }
+
+var (
+	ErrInvalidCredentials = errors.New("invalid credentials")
+)
 
 func New(
 	userSaver UserSaver,
@@ -57,7 +63,25 @@ func (a *Auth) Login(ctx context.Context, email, password string, appID int32) (
 
 	user, err := a.usrProvider.User(ctx, email)
 	if err != nil {
+		if errors.Is(err, storage.ErrUserNotFound) {
+			log.Warn("user not found", sl.Err(err))
 
+			return "", fmt.Errorf("%s: %w", op, ErrInvalidCredentials)
+		}
+
+		log.Error("failed to get user", sl.Err(err))
+
+		return "", fmt.Errorf("%s: %w", op, err)
+	}
+
+	if err := bcrypt.CompareHashAndPassword(user.PassHash, []byte(password)); err != nil {
+		log.Info("invalid credentials", sl.Err(err))
+		return "", fmt.Errorf("%s: %w", op, ErrInvalidCredentials)
+	}
+
+	app, err := a.appProvider.App(ctx, appID)
+	if err != nil {
+		return "", fmt.Errorf("%s: %w", op, err)
 	}
 
 	return "1234567890", nil
