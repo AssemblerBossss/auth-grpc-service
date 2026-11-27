@@ -9,14 +9,14 @@ import (
 )
 
 type Config struct {
-	Env         string        `yaml:"env" env-default:"local"`
-	StoragePath string        `yaml:"storage_path" env-required:"false"`
-	TokenTTL    time.Duration `yaml:"token_ttl" env-required:"true"`
+	Env         string        `yaml:"env"          env-default:"local"`
+	StoragePath string        `yaml:"storage_path"                     env-required:"false"`
+	TokenTTL    time.Duration `yaml:"token_ttl"                        env-required:"true"`
 	GRPC        GRPCConfig    `yaml:"grpc"`
 }
 
 type GRPCConfig struct {
-	Port    int           `yaml:"port" env-default:"8080"`
+	Port    int           `yaml:"port"    env-default:"8080"`
 	Timeout time.Duration `yaml:"timeout" env-default:"5s"`
 }
 
@@ -25,16 +25,21 @@ func MustLoad() *Config {
 	if path == "" {
 		panic("config file path is empty")
 	}
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		panic("config file not found")
+	return MustLoadByPath(path)
+
+}
+
+func MustLoadByPath(configPath string) *Config {
+	if _, err := os.Stat(configPath); os.IsNotExist(err) {
+		panic("config file does not exist: " + configPath)
 	}
 
 	var cfg Config
-	if err := cleanenv.ReadConfig(path, &cfg); err != nil {
-		panic("config path is empty: " + err.Error())
+	if err := cleanenv.ReadConfig(configPath, &cfg); err != nil {
+		panic("cannot read config: " + err.Error())
 	}
-	return &cfg
 
+	return &cfg
 }
 
 // fetchConfigPath fetches config path from command line or environment variable
